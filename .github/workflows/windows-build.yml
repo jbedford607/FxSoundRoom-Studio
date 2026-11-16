@@ -114,6 +114,15 @@ jobs:
           msbuild-architecture: x64
           vs-version: '[17.0,18.0)'
 
+      - name: Package compiled source tree
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path 'dist' | Out-Null
+          Compress-Archive -Path 'source/*' -DestinationPath 'dist/FxSoundRoom-Stereo-71-Source.zip' -CompressionLevel Optimal -Force
+          if (-not (Test-Path 'dist/FxSoundRoom-Stereo-71-Source.zip')) {
+            throw 'Failed to package matching Windows-built source tree'
+          }
+
       - name: Build native FxSound x64 app
         shell: pwsh
         run: |
@@ -131,14 +140,6 @@ jobs:
           Copy-Item $app.FullName 'dist/FxSoundRoom.exe'
           Write-Host "Compiled application at dist/FxSoundRoom.exe"
           Write-Host 'IMPORTANT: This is NOT a driver installer. Existing signed FxSound virtual audio driver is required.'
-
-      - name: Package compiled source tree
-        shell: pwsh
-        run: |
-          Compress-Archive -Path 'source/*' -DestinationPath 'dist/FxSoundRoom-Stereo-71-Source.zip' -CompressionLevel Optimal -Force
-          if (-not (Test-Path 'dist/FxSoundRoom-Stereo-71-Source.zip')) {
-            throw 'Failed to package matching Windows-built source tree'
-          }
 
       - name: Upload exact modified source
         uses: actions/upload-artifact@v4
