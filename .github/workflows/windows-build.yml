@@ -1,0 +1,91 @@
+name: Build FxSound Room Studio (Windows)
+
+on:
+  push:
+    paths:
+      - 'FxSoundRoom-Advanced-Correction-Source.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Check out build workspace
+        uses: actions/checkout@v4
+
+      - name: Unpack FxSound Room Studio source
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:GITHUB_WORKSPACE 'FxSoundRoom-Advanced-Correction-Source.zip'
+          if (-not (Test-Path -LiteralPath $archive)) {
+            throw "Source archive is missing. Upload FxSoundRoom-Advanced-Correction-Source.zip to the repository root, then run this workflow again."
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath source -Force
+          foreach ($path in @('source/fxsound/Project/FxSound.sln', 'source/spatial/Studio.cpp', 'source/spatial/AdvancedCorrectionTest.cpp', 'source/JUCE/modules')) {
+            if (-not (Test-Path $path)) { throw "Invalid archive: missing $path" }
+          }
+          Write-Host "Verified source archive and key files."
+
+      - name: Run native DSP tests on Windows
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path 'test-bin' | Out-Null
+          $tests = @('AdvancedCorrectionTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
+          foreach ($test in $tests) {
+            Write-Host "Compiling $test ..."
+            & clang++ -O2 -std=c++17 "source/spatial/$test.cpp" 'source/spatial/biquad.cpp' 'source/spatial/biquad_matched.cpp' -o "test-bin/$test.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$test compilation failed" }
+            Write-Host "Running $test ..."
+            & "test-bin/$test.exe"
+            if ($LASTEXITCODE -ne 0) { throw "$test failed" }
+          }
+
+      - name: Configure vendored JUCE modules
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path 'C:/JUCE' | Out-Null
+          Copy-Item 'source/JUCE/modules' -Destination 'C:/JUCE/modules' -Recurse -Force
+          # The recovered .vcxproj contains nine-level relative JUCE references from
+          # its original build machine. Redirect those to the supplied JUCE files.
+          $project = 'source/fxsound/Project/FxSound_App.vcxproj'
+          $text = Get-Content -LiteralPath $project -Raw
+          $text = $text -replace '(\.\.\\){3,}JUCE\\modules\\', 'C:\JUCE\modules\'
+          Set-Content -LiteralPath $project -Value $text -Encoding UTF8
+          if (-not (Test-Path 'C:/JUCE/modules/juce_core/juce_core.h')) {
+            throw 'JUCE modules not installed into expected location.'
+          }
+
+      - name: Configure Visual Studio MSBuild
+        uses: microsoft/setup-msbuild@v3
+        with:
+          msbuild-architecture: x64
+          vs-version: '[17.0,18.0)'
+
+      - name: Build native FxSound x64 app
+        shell: pwsh
+        run: |
+          & msbuild 'source/fxsound/Project/FxSound.sln' /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw "Visual Studio build failed. Inspect MSBuild errors above." }
+
+      - name: Package compiled application artifact
+        shell: pwsh
+        run: |
+          $app = Get-ChildItem 'source/fxsound/Project' -Filter 'FxSound.exe' -File -Recurse |
+                 Where-Object { $_.FullName -match 'Release' } |
+                 Select-Object -First 1
+          if (-not $app) { throw 'MSBuild reported success but FxSound.exe was not found.' }
+          New-Item -ItemType Directory -Force -Path 'dist' | Out-Null
+          Copy-Item $app.FullName 'dist/FxSoundRoom.exe'
+          Write-Host "Compiled application at dist/FxSoundRoom.exe"
+          Write-Host 'IMPORTANT: This is NOT a driver installer. Existing signed FxSound virtual audio driver is required.'
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: FxSoundRoom-Windows-x64
+          path: dist/FxSoundRoom.exe
+          if-no-files-found: error
