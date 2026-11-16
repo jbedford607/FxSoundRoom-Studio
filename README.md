@@ -51,3 +51,20 @@ The modified application includes persistent settings and a larger scrollable 7.
 
 **Testing:** Automated DSP unit tests and Windows Visual Studio build passed; live audio playback on physical 7.1 hardware and visual GUI inspection remain unverified.
 
+
+
+## Live Stem Matrix (17 November 2026)
+
+Latest **passing** Windows CI run: [43913561369](../../actions/runs/43913561369). Nine native DSP regression test executables passed, followed by Windows x64 MSBuild. New source: `upgrade/LiveStemMatrix.h`, `upgrade/LiveStemMatrixTest.cpp`, `upgrade/ApplyLiveStemMatrix.py`.
+
+The **Live stems** GUI tab provides:
+- Four *DSP-estimated*, not AI-isolated, music groups: bass/low end, centered (vocal-like) audio, percussive transients, stereo-side details.
+- A true **4 × 8 speaker matrix**: assign any subset of FL, FR, center, LFE, rear-left/right, side-left/right to each group.
+- Independent gain sliders, live signal-level meters, center/drum sensitivity and bass cutoff.
+- Three useful routing presets (Studio band, Rhythm in surround, Gentle overlay), a full reset, and Solo audition modes that mute the original to reveal exactly what the estimator extracted.
+- Optional replacement of existing synthetic side/rear content, without clearing genuine native discrete 7.1 source channels.
+- Saved routing state, initially disabled. Operates only when audio is rendered in Windows 7.1 layout from an L/R source.
+
+**What it is not:** there is no bundled neural instrument-separation model, and these four groups are **not isolated vocals, drums, guitar or bass stems** in the Demucs sense. A center-panned instrument can be included in the vocal-like group; kicks and bass may overlap; stereo-difference details may include ambience and effects. No extra algorithmic sample-buffer/lookahead is introduced by this processor; Windows audio buffers still contribute latency.
+
+The original signed FxSound driver remains untouched in the separately packaged NSIS installer. Automated DSP tests and compiler build passed; GUI interaction and live speaker playback have not been verified on a physical Windows 7.1 system.
