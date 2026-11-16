@@ -100,7 +100,7 @@ jobs:
           python 'upgrade/ApplyLiveStemMatrix.py'
           if ($LASTEXITCODE -ne 0) { throw 'Live stem source integration failed.' }
           $studio = Get-Content 'source/spatial/Studio.cpp' -Raw
-          foreach ($needle in @('liveStems.process(originalStereo', 'stemSourceIsStereo', 'stemRouteBass', 'tab("Live stems"', 'speaker[i][ch].onClick')) {
+          foreach ($needle in @('liveStems.process(originalStereo', 'stemSourceIsStereo', 'stemRouteBass', 'tab("Live stems"', 'item.onClick')) {
             if (-not $studio.Contains($needle)) { throw "Missing 7.1 live stem feature: $needle" }
           }
 
