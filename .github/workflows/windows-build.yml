@@ -92,6 +92,18 @@ jobs:
             if (-not $studio.Contains($needle)) { throw "Missing processing/UI component: $needle" }
           }
 
+      - name: Add live four-source 7.1 routing matrix
+        shell: pwsh
+        run: |
+          Copy-Item 'upgrade/LiveStemMatrix.h' 'source/spatial/LiveStemMatrix.h'
+          Copy-Item 'upgrade/LiveStemMatrixTest.cpp' 'source/spatial/LiveStemMatrixTest.cpp'
+          python 'upgrade/ApplyLiveStemMatrix.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Live stem source integration failed.' }
+          $studio = Get-Content 'source/spatial/Studio.cpp' -Raw
+          foreach ($needle in @('liveStems.process(originalStereo', 'stemSourceIsStereo', 'stemRouteBass', 'tab("Live stems"', 'speaker[i][ch].onClick')) {
+            if (-not $studio.Contains($needle)) { throw "Missing 7.1 live stem feature: $needle" }
+          }
+
       - name: Fix Windows test stack allocation
         shell: pwsh
         run: |
@@ -111,7 +123,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path 'test-bin' | Out-Null
-          $tests = @('AdvancedCorrectionTest', 'AdvancedSpatialTest', 'AmbienceEffectsTest', 'FocusAmbienceTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
+          $tests = @('AdvancedCorrectionTest', 'AdvancedSpatialTest', 'AmbienceEffectsTest', 'FocusAmbienceTest', 'LiveStemMatrixTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
           foreach ($test in $tests) {
             Write-Host "Compiling $test ..."
             & clang++ -O2 -std=c++17 "source/spatial/$test.cpp" 'source/spatial/biquad.cpp' 'source/spatial/biquad_matched.cpp' -o "test-bin/$test.exe"
