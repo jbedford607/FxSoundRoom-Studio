@@ -225,6 +225,6 @@ replace('  tab("Stereo ambience",new StereoPage);tab("7.1 ambience",new PageView
   tab("Stereo ambience",new StereoPage);tab("7.1 ambience",new PageView(new SpacePage));''')
 p.write_text(s,encoding="utf-8")
 for needle in ("liveStems.process(originalStereo,p,len","tab(\"Live stems\",new PageView(new StemsPage))",
-               "stemRouteBass","audition.onChange","speaker[i][ch].onClick","stemReplace"):
+               "stemRouteBass","audition.onChange","item.onClick","stemReplace"):
  if needle not in s:raise RuntimeError("Missing integrated GUI/DSP: "+needle)
 print("PASS: 4 sources x 8 routing UI, DSP processing, native-channel safety, preset/solo controls, saved settings.")
