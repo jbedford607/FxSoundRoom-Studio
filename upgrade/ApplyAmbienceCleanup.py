@@ -34,7 +34,7 @@ once('enhancedSpatial.reset();stereoRack.reset();orbitRack.reset();',
 section(' int second=cfg.secondLevel.load()', ' uint32_t mapping=cfg.mapping.load();',
         '') 
 section('  // Stereo DSP runs before 7.1 upmix', '  if(up){',
-'''  // Ambient stereo rack. L/R stay in place: no orbit, ping-pong, or stereo-pan animation.
+'''  // Ambient stereo rack. L/R remain stationary; only reflections change.
   if(!compare && (n==2||valid)){
    ambiencefx::ChorusSettings chorus;
    chorus.enabled=cfg.stereoChorus.load()!=0;
@@ -115,7 +115,7 @@ public:
    addAndMakeVisible(labels[i]);addAndMakeVisible(values[i]);label(labels[i],captions[i]);
    auto& slider=values[i];slider.setRange(0,i==3?120:100,1);
    slider.setTextBoxStyle(Slider::TextBoxRight,false,56,22);
-   auto* target=targets[i],*dummy=targets[i];(void)dummy;
+   auto* target=targets[i];
    auto* control=&slider;
    slider.onValueChange=[target,control]{*target=int(control->getValue());};
    slider.onDragEnd=[]{saveSettings();};
