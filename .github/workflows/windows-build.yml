@@ -64,6 +64,22 @@ jobs:
             throw '7.1 orbit processor was not connected.'
           }
 
+      - name: Remove novelty FX and apply ambience-focused replacements
+        shell: pwsh
+        run: |
+          Copy-Item 'upgrade/AmbienceEffects.h' 'source/spatial/AmbienceEffects.h'
+          Copy-Item 'upgrade/AmbienceEffectsTest.cpp' 'source/spatial/AmbienceEffectsTest.cpp'
+          python 'upgrade/ApplyAmbienceCleanup.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Ambience cleanup and source integration failed.' }
+          foreach ($pattern in @('stereoHallEngine.process', 'surroundAmbientEngine.process', 'tab\("Stereo ambience"')) {
+            if (-not (Select-String -Path 'source/spatial/Studio.cpp' -Pattern $pattern -Quiet)) {
+              throw "Missing ambience integration: $pattern"
+            }
+          }
+          if (Select-String -Path 'source/spatial/Studio.cpp' -Pattern 'orbitRack|stereoRack|ping.pong' -Quiet) {
+            throw 'Obsolete moving/panning processors remain connected.'
+          }
+
       - name: Fix Windows test stack allocation
         shell: pwsh
         run: |
@@ -83,7 +99,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path 'test-bin' | Out-Null
-          $tests = @('AdvancedCorrectionTest', 'AdvancedSpatialTest', 'AdvancedEffectsTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
+          $tests = @('AdvancedCorrectionTest', 'AdvancedSpatialTest', 'AmbienceEffectsTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
           foreach ($test in $tests) {
             Write-Host "Compiling $test ..."
             & clang++ -O2 -std=c++17 "source/spatial/$test.cpp" 'source/spatial/biquad.cpp' 'source/spatial/biquad_matched.cpp' -o "test-bin/$test.exe"
