@@ -32,3 +32,22 @@ The latest passing workflow run is [Ambience Cleanup](../../actions/runs/4390162
 ## License
 
 The FxSound-derived code is governed by its AGPL-3.0-or-later license, included in the bundled source. No third-party VST plugin binaries are included.
+
+
+## Ambience Focus upgrade (17 November 2026)
+
+Latest verified workflow: [Windows build 43904341402](../../actions/runs/43904341402). The build passed **eight** native DSP regression suites and produced a Windows x64 application artifact.
+
+The **7.1 ambience** page has four additional native audio functions:
+
+- **Stereo ambience extraction:** Uses adjustable stereo difference information to emphasize spatial/background material. It is not machine-learning source separation.
+- **Reverb ducking:** A real-time envelope follower reduces only the wet late-reflection signal during strong direct sound.
+- **Frequency-based ambience:** Independent low-cut (40–4000 Hz) and high-cut (1000–18000 Hz) controls operate on the reverb input.
+- **Wet-only 7.1:** When the source appears to be stereo-derived 7.1, suppresses synthesized direct side/rear content and routes late reverb to the four ambient speakers. Preserves native side/rear channels when genuine multichannel input is detected.
+
+The upmix algorithm, stereo hall, subtle chorus, speaker-specific side/rear send levels, and imported correction options remain.
+
+The modified application includes persistent settings and a larger scrollable 7.1 page. The original driver is retained unchanged in the separately distributed NSIS installer; it is not re-signed or replaced.
+
+**Testing:** Automated DSP unit tests and Windows Visual Studio build passed; live audio playback on physical 7.1 hardware and visual GUI inspection remain unverified.
+
