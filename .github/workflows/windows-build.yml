@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'FxSoundRoom-Advanced-Correction-Source.zip'
+      - '.github/workflows/windows-build.yml'
   workflow_dispatch:
 
 permissions:
@@ -30,6 +31,21 @@ jobs:
           }
           Write-Host "Verified source archive and key files."
 
+      - name: Fix Windows test stack allocation
+        shell: pwsh
+        run: |
+          # The room studio test constructs a 1.1 MiB DSP Engine on the stack.
+          # Windows executables default to a ~1 MiB stack, so this test crashes
+          # before reaching any asserts. Place the TEST fixture in static storage.
+          $testPath = 'source/spatial/RoomStudioEngineTest.cpp'
+          $original = Get-Content -LiteralPath $testPath -Raw
+          if (-not $original.Contains(' Engine e;resetControls();')) {
+            throw 'Unexpected test source: cannot safely repair Windows stack overflow'
+          }
+          $patched = $original.Replace(' Engine e;resetControls();', ' static Engine e;resetControls();')
+          Set-Content -LiteralPath $testPath -Value $patched -Encoding UTF8
+          Write-Host 'RoomStudioEngineTest fixture now uses static storage.'
+
       - name: Run native DSP tests on Windows
         shell: pwsh
         run: |
@@ -41,7 +57,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "$test compilation failed" }
             Write-Host "Running $test ..."
             & "test-bin/$test.exe"
-            if ($LASTEXITCODE -ne 0) { throw "$test failed" }
+            if ($LASTEXITCODE -ne 0) { throw "$test failed with exit code $LASTEXITCODE" }
           }
 
       - name: Configure vendored JUCE modules
