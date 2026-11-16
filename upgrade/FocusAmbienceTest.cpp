@@ -28,7 +28,7 @@ static void apply(std::vector<float>& x,ambiencefx::FocusSettings focus,
  s.preDelayMs=10;s.sideLeft=100;s.sideRight=100;s.rearLeft=100;s.rearRight=100;
  focus.wetOnly=wetOnly;
  for(int off=0;off<frames;off+=256)
-  send.process(x.data()+off*8,std::min(256,frames-off),8,rate,0x63f,s,focus,upmixed);
+  send.process(x.data()+off*8,std::min(256,frames-off),8,rate,0x63f,s,focus,rv,upmixed);
 }
 int main(){
  ambiencefx::FocusSettings f;
@@ -38,7 +38,7 @@ int main(){
  bypass[4]=.21f;
  auto backup=bypass;
  ambiencefx::ReverbSettings disabled;
- send.process(bypass.data(),256,8,rate,0x63f,disabled,f,true);
+ send.process(bypass.data(),256,8,rate,0x63f,disabled,f,rv,true);
  assert(bypass==backup);
  auto wetOnly=signal(500.f,.4f);
  for(int i=0;i<frames;++i){wetOnly[8*i+6]=.13f;wetOnly[8*i+4]=.17f;}
@@ -87,7 +87,7 @@ int main(){
  auto old=wrong;
  send.reset();rv.reset();
  ambiencefx::ReverbSettings on;on.enabled=true;
- send.process(wrong.data(),256,8,rate,0x3f,on,f,true);
+ send.process(wrong.data(),256,8,rate,0x3f,on,f,rv,true);
  assert(wrong==old);
  std::printf("PASS focus: bypass, wet-only stereo, native 7.1, extraction, frequency selection, ducking, layout safety\n");
 }
