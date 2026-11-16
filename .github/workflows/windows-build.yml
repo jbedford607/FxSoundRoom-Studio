@@ -5,6 +5,7 @@ on:
     paths:
       - 'FxSoundRoom-Advanced-Correction-Source.zip'
       - '.github/workflows/windows-build.yml'
+      - 'upgrade/**'
   workflow_dispatch:
 
 permissions:
@@ -31,6 +32,24 @@ jobs:
           }
           Write-Host "Verified source archive and key files."
 
+      - name: Apply native surround and reverb upgrades
+        shell: pwsh
+        run: |
+          $encoded = (Get-Content -LiteralPath 'upgrade/spatial-upgrade-overlay.zip.b64' -Raw).Trim()
+          $archive = Join-Path $env:RUNNER_TEMP 'spatial-upgrade.zip'
+          [System.IO.File]::WriteAllBytes($archive, [Convert]::FromBase64String($encoded))
+          Expand-Archive -LiteralPath $archive -DestinationPath 'overlay' -Force
+          Copy-Item 'overlay/spatial/AdvancedSpatial.h' 'source/spatial/AdvancedSpatial.h'
+          Copy-Item 'overlay/spatial/AdvancedSpatialTest.cpp' 'source/spatial/AdvancedSpatialTest.cpp'
+          & git apply --check --directory=source 'overlay/upgrade/spatial-upgrade.patch'
+          if ($LASTEXITCODE -ne 0) { throw 'Upgrade patch does not match uploaded source.' }
+          & git apply --directory=source 'overlay/upgrade/spatial-upgrade.patch'
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to apply upgrade patch.' }
+          if (-not (Select-String -Path 'source/spatial/Studio.cpp' -Pattern 'enhancedSpatial.process' -Quiet)) {
+            throw 'Advanced DSP render path not connected.'
+          }
+          Write-Host 'Upgraded reverb, surround processor, GUI settings, and tests applied.'
+
       - name: Fix Windows test stack allocation
         shell: pwsh
         run: |
@@ -50,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path 'test-bin' | Out-Null
-          $tests = @('AdvancedCorrectionTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
+          $tests = @('AdvancedCorrectionTest', 'AdvancedSpatialTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
           foreach ($test in $tests) {
             Write-Host "Compiling $test ..."
             & clang++ -O2 -std=c++17 "source/spatial/$test.cpp" 'source/spatial/biquad.cpp' 'source/spatial/biquad_matched.cpp' -o "test-bin/$test.exe"
