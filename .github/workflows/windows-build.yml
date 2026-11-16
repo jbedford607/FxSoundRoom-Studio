@@ -50,6 +50,20 @@ jobs:
           }
           Write-Host 'Upgraded reverb, surround processor, GUI settings, and tests applied.'
 
+      - name: Apply stereo rack and surround orbit effects
+        shell: pwsh
+        run: |
+          Copy-Item 'upgrade/AdvancedEffects.h' 'source/spatial/AdvancedEffects.h'
+          Copy-Item 'upgrade/AdvancedEffectsTest.cpp' 'source/spatial/AdvancedEffectsTest.cpp'
+          python 'upgrade/ApplyStereoOrbit.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to integrate Stereo/7.1 DSP and GUI.' }
+          if (-not (Select-String -Path 'source/spatial/Studio.cpp' -Pattern 'tab\("Stereo FX"' -Quiet)) {
+            throw 'Stereo FX GUI tab was not integrated.'
+          }
+          if (-not (Select-String -Path 'source/spatial/Studio.cpp' -Pattern 'orbitRack.process' -Quiet)) {
+            throw '7.1 orbit processor was not connected.'
+          }
+
       - name: Fix Windows test stack allocation
         shell: pwsh
         run: |
@@ -69,7 +83,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path 'test-bin' | Out-Null
-          $tests = @('AdvancedCorrectionTest', 'AdvancedSpatialTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
+          $tests = @('AdvancedCorrectionTest', 'AdvancedSpatialTest', 'AdvancedEffectsTest', 'RoomEngineTest', 'RoomStudioEngineTest', 'AnalysisTest', 'OutputLimiterTest')
           foreach ($test in $tests) {
             Write-Host "Compiling $test ..."
             & clang++ -O2 -std=c++17 "source/spatial/$test.cpp" 'source/spatial/biquad.cpp' 'source/spatial/biquad_matched.cpp' -o "test-bin/$test.exe"
