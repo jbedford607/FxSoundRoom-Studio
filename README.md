@@ -1,30 +1,34 @@
-# FxSound Room Studio — Windows build
+# FxSound Room Studio — Windows build workspace
 
-This repository is the Windows build workspace for the FxSound Room Studio source modification.
+Customized FxSound Room Studio with two simplified audio-effects pages:
 
-## Current status
+## Stereo ambience
+- Stereo hall reverb with real decay, predelay, high-frequency damping, and wet mix
+- Soft chorus for subtle depth, without panning, orbiting, or ping-pong movement
 
-- The original, modified source archive is **not yet uploaded**.
-- The Windows CI workflow is configured to accept the source archive, execute five DSP regression tests, and compile the FxSound application using Visual Studio 2022.
-- The archive contains a **source-only** advanced correction module (REW/EQ APO filter import, multichannel convolution, CamillaDSP export). Those features are not yet verified in a Windows-built installer.
-- Dragonfly Reverb, Cavern QuickEQ, Eary's Spatial Expander, FluidEQ and live CamillaDSP processing are **not** bundled.
+## 7.1 ambience
+- Dedicated late/diffuse reverb feeding **only** side and rear speakers
+- Four independent wet-only speaker sends (side left/right, rear left/right)
+- The reverb stage leaves front L/R, centre, and LFE unchanged
+- Original room feedback / 8-line FDN algorithm / imported WAV convolution remain selectable
+- Existing 7.1 upmix, room correction, microphone calibration, and speaker-room configuration retained
 
-## One-time source upload
+Removed from the active effects interface: orbit echo, ping-pong echo, moving phaser, manual stereo width, fake rear decay spread, and tuned-note send controls. Older tuned-note sends are disabled when settings load.
 
-Upload **`FxSoundRoom-Advanced-Correction-Source.zip`** to the **root** of this repository, without extracting it. The file is approximately 7 MB.
+## Windows build
 
-This automatically triggers **Actions → Build FxSound Room Studio (Windows)**. A green build contains a compiled `FxSoundRoom.exe` artifact. Red indicates tests or compilation need fixing (open the failed step's log).
+The repository contains a source archive and **[GitHub Actions Windows build workflow](../../actions)**.
+On a Windows Server 2022 runner, the workflow:
+1. Extracts the source archive
+2. Applies the advanced surround, legacy Stereo/7.1, and latest ambience replacement patches
+3. Runs the native DSP regression tests
+4. Builds the GUI with Visual Studio 2022 and JUCE
+5. Uploads a compiled application artifact and an exact source ZIP
 
-The workflow intentionally **does not install or repackage the audio driver unless all original signed driver/package assets are provided**. A compiled app without the virtual audio driver is not a standalone working audio installation.
+The latest passing workflow run is [Ambience Cleanup](../../actions/runs/43901620697). The compiled app by itself requires the original signed FxSound virtual audio driver. The separate NSIS installer handed to the user bundles unchanged original driver files.
 
-## Technical details
+**Verification limits:** automated DSP tests and Windows compilation passed. Live Windows audio, GUI layout and speaker hardware playback were not tested.
 
-- Windows Server 2022 hosted runner (Visual Studio 2022 and Windows SDK)
-- Vendored JUCE modules unpacked to `C:\JUCE\modules`
-- Native C++ tests: AdvancedCorrection, RoomEngine, RoomStudioEngine, Analysis and OutputLimiter
-- MSBuild: `fxsound/Project/FxSound.sln` — Release, x64
-- AGPL-3.0-or-later FxSound source; see `LICENSE` in the ZIP
+## License
 
-The original FxSound virtual audio driver is separately distributed by FxSound. Windows CI cannot verify physical speakers, audio quality, installed driver behaviour, or live GUI appearance.
-
-**Note:** The repository is currently public. GitHub repository visibility can be changed in Settings → General → Danger Zone if private storage was intended.
+The FxSound-derived code is governed by its AGPL-3.0-or-later license, included in the bundled source. No third-party VST plugin binaries are included.
