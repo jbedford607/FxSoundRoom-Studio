@@ -44,7 +44,6 @@ public:
   const float duck=bounded(focus.duckPercent,0,100)*.01f;
   std::array<float,maxFrames*8> wet{};
   std::array<float,maxFrames> duckGain{};
-  std::array<bool,maxFrames> preserveNative{};
   for(int i=0;i<frames;++i){
    const float* src=dest+i*8;
    const float l=finite(src[0]),r=finite(src[1]);
@@ -64,15 +63,11 @@ public:
     high[ch]+=highAlpha*(hp-high[ch]);
     wet[i*8+ch]=finite(high[ch]);
    }
-   // Protect real multichannel content; wet-only clears synthesized surround,
-   // not native side/rear audio when input already contains discrete material.
-   preserveNative[i]=std::abs(src[4])+std::abs(src[5])+
-                     std::abs(src[6])+std::abs(src[7])>1.e-6f;
   }
   reverb.process(wet.data(),frames,8,rate,layout,reverbSettings,true);
   for(int i=0;i<frames;++i){
    float* dst=dest+i*8;
-   if(focus.wetOnly&&derivedUpmix&&!preserveNative[i]){
+   if(focus.wetOnly&&derivedUpmix){
     for(int c=4;c<8;++c)dst[c]=0.f;
    }
    for(int c=4;c<8;++c)dst[c]=finite(dst[c]+wet[i*8+c]*duckGain[i]);
