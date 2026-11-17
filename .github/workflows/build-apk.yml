@@ -60,6 +60,7 @@ jobs:
             adb logcat -d -v time -s PulseStudio:I AndroidRuntime:E chromium:E > pulse-logcat.txt
             cat pulse-logcat.txt | tail -75
             grep -q 'STARTUP TEST:' pulse-logcat.txt
+            grep -q 'SMOKE_UI_OK' pulse-logcat.txt
             grep -q 'SMOKE_AUDIO_MEAN' pulse-logcat.txt
             grep -q 'SMOKE_EXPORT' pulse-logcat.txt
             if grep -E 'SMOKE_AUDIO_FAIL|FATAL EXCEPTION' pulse-logcat.txt; then exit 1; fi
