@@ -9,11 +9,11 @@ const freshFX=()=>({
   hyper:{on:false,mix:.32,amount:.48}, distortion:{on:false,mix:.5,amount:.4}, flanger:{on:false,mix:.4,amount:.4}, phaser:{on:false,mix:.4,amount:.45}, chorus:{on:false,mix:.3,amount:.5}, delay:{on:true,mix:.16,amount:.35}, compressor:{on:false,mix:.9,amount:.5}, reverb:{on:true,mix:.22,amount:.5}, eq:{on:false,mix:.8,amount:.5}, filter:{on:false,mix:.8,amount:.5}
 });
 const defaultSynth=()=>({waveA:'pulse',waveB:'sawtooth',aLevel:75,aDetune:19,unisonA:2,bOn:false,bLevel:50,bDetune:10,attack:.007,decay:.28,sustain:65,release:.13,cutoff:14500,reso:16,glide:0,master:70});
-let state={name:'INIT • HYBRID LEAD',bpm:145,synth:defaultSynth(),effects:freshFX(),notes:[{t:0,len:8,pitch:72,vel:.85},{t:8,len:4,pitch:76,vel:.85},{t:12,len:4,pitch:79,vel:.85},{t:16,len:8,pitch:76,vel:.8},{t:24,len:8,pitch:74,vel:.82},{t:32,len:8,pitch:72,vel:.84}],presetFormat:'init',presetNote:'Internal wavetable synth',sampleData:null,fxOrder:null};
-let sampleBuffer=null,active=null,preview=null,selected=null,tool='draw',snap=2,loop=false,drag=null,undoStack=[],toastTimeout;
+let state={name:'LD C64 Lead [AS]',bpm:145,synth:defaultSynth(),effects:freshFX(),notes:[{t:0,len:8,pitch:72,vel:.85},{t:8,len:4,pitch:76,vel:.85},{t:12,len:4,pitch:79,vel:.85},{t:16,len:8,pitch:76,vel:.8},{t:24,len:8,pitch:74,vel:.82},{t:32,len:8,pitch:72,vel:.84}],presetFormat:'reference-loading',presetNote:'Retrieving original Serum sound automatically…',sampleData:null,fxOrder:null};
+let sampleBuffer=null,referenceBuffer=null,active=null,preview=null,selected=null,tool='draw',snap=2,loop=false,drag=null,undoStack=[],toastTimeout;
 function toast(s){const t=$('toast');t.textContent=s;t.classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>t.classList.remove('show'),3200)}
 function snapshot(){undoStack.push(JSON.stringify(state.notes));if(undoStack.length>30)undoStack.shift()}
-function updateHeader(){ $('presetTitle').textContent=state.name; $('presetStatus').textContent=state.presetNote; $('bpm').value=state.bpm; $('sourceType').textContent=state.presetFormat==='sample'?'Sample-based':state.presetFormat==='fxp'?'FXP approximate':state.presetFormat==='serum2'?'Serum 2 metadata only':'Native synthesizer'; $('keyboardInfo').textContent=state.presetFormat==='sample'?'Original WAV sample mapped across the keyboard. Notes are pitch shifted from C4.':'For closest Serum sound, render C4 as WAV in FL Studio and import that recording here.'}
+function updateHeader(){ $('presetTitle').textContent=state.name; $('presetStatus').textContent=state.presetNote; $('bpm').value=state.bpm; $('sourceType').textContent=state.presetFormat==='reference'?'Recorded Serum audio':state.presetFormat==='reference-loading'?'Auto-loading reference':state.presetFormat==='sample'?'Sample-based':state.presetFormat==='fxp'?'FXP approximate':state.presetFormat==='serum2'?'Serum 2 metadata only':'Native synthesizer'; $('keyboardInfo').textContent=state.presetFormat==='reference'?'C64 preset sound is taken from an original Serum audio comparison. Some pitches are transposed from a short recording; full Serum modulation is not reproduced.':state.presetFormat==='reference-loading'?'The original Serum comparison audio is fetched and cached automatically on first launch. No file import needed.':state.presetFormat==='sample'?'Original WAV sample mapped across the keyboard. Notes are pitch shifted from C4.':'Other Serum presets still use approximate synthesis; C64 sound loads automatically.'}
 const canvas=$('grid'),g=canvas.getContext('2d');
 function setupGrid(){let dpr=Math.min(2,window.devicePixelRatio||1), w=SIDE+TICKS*STEP,h=(HI-LO+1)*KEY;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);canvas.style.width=w+'px';canvas.style.height=h+'px';$('rollBody').style.width=w+'px';$('rollBody').style.height=h+'px';g.setTransform(dpr,0,0,dpr,0,0);drawGrid()}
 function drawGrid(){const w=SIDE+TICKS*STEP,h=(HI-LO+1)*KEY;g.clearRect(0,0,w,h);
@@ -53,7 +53,7 @@ function driveCurve(amount){let n=4096,ar=new Float32Array(n),k=1+amount*40;for(
 function roomImpulse(ctx,seconds=1.8,amount=.5){let len=Math.min(ctx.sampleRate*4,Math.floor(ctx.sampleRate*seconds)),buffer=ctx.createBuffer(2,len,ctx.sampleRate);let seed=7;for(let ch=0;ch<2;ch++){let d=buffer.getChannelData(ch);for(let i=0;i<len;i++){seed=(seed*1664525+1013904223)>>>0;let n=(seed/2147483648-1);let p=i/len;d[i]=n*Math.pow(1-p,2+amount*5)*.55}}return buffer}
 function stage(ctx,input,fx,maker){let out=ctx.createGain(),dry=ctx.createGain(),wet=ctx.createGain();let mix=fx.on?fx.mix:0;dry.gain.value=1-mix;wet.gain.value=mix;input.connect(dry).connect(out);maker(input,wet);wet.connect(out);return out}
 function makeAudioGraph(ctx){let input=ctx.createGain(),p=state.synth,fx=state.effects,src=input;
-  const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=clamp(p.cutoff,90,19500);filter.Q.value=clamp(p.reso/10,.0001,12);src.connect(filter);src=filter;
+  if(state.presetFormat!=='reference') {const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=clamp(p.cutoff,90,19500);filter.Q.value=clamp(p.reso/10,.0001,12);src.connect(filter);src=filter;}
   const makers={
     hyper:(ins,wet,v)=>{let d=ctx.createDelay(.1),osc=ctx.createOscillator(),m=ctx.createGain();d.delayTime.value=.014;osc.frequency.value=.1+v.amount*2;m.gain.value=.002+v.amount*.008;osc.connect(m).connect(d.delayTime);ins.connect(d).connect(wet);osc.start()},
     distortion:(ins,wet,v)=>{let sh=ctx.createWaveShaper(),lp=ctx.createBiquadFilter();sh.curve=driveCurve(v.amount);sh.oversample='2x';lp.type='lowpass';lp.frequency.value=13500-v.amount*8500;ins.connect(sh).connect(lp).connect(wet)},
@@ -70,8 +70,31 @@ function makeAudioGraph(ctx){let input=ctx.createGain(),p=state.synth,fx=state.e
   let master=ctx.createGain();master.gain.value=clamp(p.master/100,0,1)*.7;src.connect(master).connect(ctx.destination);return input
 }
 function applyEnv(gain,start,end,vel,p){let a=clamp(p.attack,.002,3),d=clamp(p.decay,.005,4),s=clamp(p.sustain/100,0,1),r=clamp(p.release,.02,4),top=clamp(vel,0,1)*.46;gain.gain.setValueAtTime(.0001,start);gain.gain.linearRampToValueAtTime(Math.max(.0002,top),start+a);gain.gain.setTargetAtTime(Math.max(.0001,top*s),start+a,.001+d/3);gain.gain.setValueAtTime(Math.max(.0001,top*s),end);gain.gain.exponentialRampToValueAtTime(.0001,end+r);return r}
+
+// These reference note times come from the publicly published A/B comparison
+// phrase in btesser/serum2vital: MIDI 48 held 0-2.5s, MIDI 48 at 2.7s,
+// MIDI 51 at 3.2s, MIDI 53 at 3.7s, MIDI 55 at 4.2s, MIDI 48 at 4.7s.
+// A short recording cannot provide perfect multisampling on all pitches.
+const referenceSlices=[
+  {pitch:48,offset:.10,loopStart:.31,loopEnd:1.27},
+  {pitch:51,offset:3.26,loopStart:3.32,loopEnd:3.48},
+  {pitch:53,offset:3.76,loopStart:3.82,loopEnd:3.98},
+  {pitch:55,offset:4.26,loopStart:4.32,loopEnd:4.48}
+];
+function referenceSlice(pitch){return referenceSlices.reduce((best,s)=>Math.abs(s.pitch-pitch)<Math.abs(best.pitch-pitch)?s:best,referenceSlices[0])}
 function scheduleNote(ctx,output,n,start,duration){let p=state.synth,end=start+duration,bus=ctx.createGain(),voiceGain=ctx.createGain();bus.connect(voiceGain).connect(output);let rel=applyEnv(voiceGain,start,end,n.vel||.85,p);let sources=[];
-  if(state.presetFormat==='sample'&&sampleBuffer){let s=ctx.createBufferSource();s.buffer=sampleBuffer;s.playbackRate.value=Math.pow(2,(n.pitch-60)/12);s.loop=sampleBuffer.duration>.5;s.loopStart=sampleBuffer.duration*.13;s.loopEnd=sampleBuffer.duration*.72;s.connect(bus);s.start(start);s.stop(end+rel+.04);sources.push(s)}else{
+  if(state.presetFormat==='reference'&&referenceBuffer){
+    let region=referenceSlice(n.pitch),s=ctx.createBufferSource();
+    s.buffer=referenceBuffer;
+    s.playbackRate.value=Math.pow(2,(n.pitch-region.pitch)/12);
+    s.loop=true;
+    s.loopStart=region.loopStart;
+    s.loopEnd=region.loopEnd;
+    s.connect(bus);
+    s.start(start,region.offset);
+    s.stop(end+rel+.04);
+    sources.push(s);
+  } else if(state.presetFormat==='sample'&&sampleBuffer){let s=ctx.createBufferSource();s.buffer=sampleBuffer;s.playbackRate.value=Math.pow(2,(n.pitch-60)/12);s.loop=sampleBuffer.duration>.5;s.loopStart=sampleBuffer.duration*.13;s.loopEnd=sampleBuffer.duration*.72;s.connect(bus);s.start(start);s.stop(end+rel+.04);sources.push(s)}else{
     function oscPart(wave,lev,detune,unison,semi){let amount=clamp(Number(lev)/100,0,1);for(let i=0;i<unison;i++){let osc=ctx.createOscillator(),gv=ctx.createGain();let spread=(i-(unison-1)/2),freq=mtof(n.pitch+semi);osc.type=wave==='pulse'?'sine':wave;if(wave==='pulse')osc.setPeriodicWave(normalizedWave(ctx,wave));osc.frequency.setValueAtTime(freq,start);osc.detune.value=spread*detune*.5; if(n.slideTarget!==undefined&&n.slideTarget!==n.pitch){osc.frequency.linearRampToValueAtTime(mtof(n.slideTarget+semi),start+Math.max(.07,duration*.75))}gv.gain.value=amount/Math.sqrt(unison)*.65;osc.connect(gv).connect(bus);osc.start(start);osc.stop(end+rel+.04);sources.push(osc)}}
     oscPart(p.waveA,p.aLevel,p.aDetune,Math.round(clamp(Number(p.unisonA)||1,1,4)),0);
     if(p.bOn)oscPart(p.waveB,p.bLevel,p.bDetune,1,0);
@@ -84,6 +107,7 @@ function syncPlayButton(){const el=$('play'),isPlaying=!!active&&!active.paused;
 function stopPlayback(){if(!active){syncPlayButton();return}let old=active;active=null;try{old.ctx.close()}catch(e){};$('positionStatus').textContent='1:01';setTransportStatus('STOPPED • TAP PLAY');syncPlayButton();drawGrid()}
 async function playPlayback(){
   if(active){try{if(active.paused){await active.ctx.resume();active.paused=false;setTransportStatus('PLAYING');}else{await active.ctx.suspend();active.paused=true;setTransportStatus('PAUSED');}syncPlayButton();}catch(e){setTransportStatus('AUDIO ERROR: '+e.message);toast('Audio error: '+e.message)}return}
+  if(state.presetFormat==='reference-loading'){setTransportStatus('GETTING THE ORIGINAL SERUM SOUND…');toast('Automatically downloading original C64 sound');return}
   if(!state.notes.length){toast('Draw a note first');setTransportStatus('NO NOTES IN PATTERN');return}
   let ctx;
   try{
@@ -135,11 +159,42 @@ function downloadProject(){hideMenu();let content=JSON.stringify({...state,notes
 $('saveProject').onclick=downloadProject;
 async function importProject(json){let x=JSON.parse(json);if(!Array.isArray(x.notes)||!x.synth||!x.effects)throw Error('Not a Pulse Studio project');stopPlayback();state={...state,...x,notes:x.notes.filter(n=>Number.isFinite(n.t)&&Number.isFinite(n.pitch)&&Number.isFinite(n.len)).slice(0,300),bpm:clamp(Number(x.bpm)||145,40,240)};sampleBuffer=null;if(state.presetFormat==='sample'&&state.sampleData){let bytes=base64ToBytes(state.sampleData);let c=new AudioContext();sampleBuffer=await c.decodeAudioData(bytes.buffer.slice(0));await c.close()}syncControls();buildEffects();updateHeader();selected=null;drawGrid();toast('Project loaded')}
 function wavBytes(buffer){let n=buffer.length,ch=2,sr=buffer.sampleRate,bytes=new Uint8Array(44+n*ch*2),d=new DataView(bytes.buffer);function wstr(off,s){for(let i=0;i<s.length;i++)d.setUint8(off+i,s.charCodeAt(i))}wstr(0,'RIFF');d.setUint32(4,bytes.length-8,true);wstr(8,'WAVE');wstr(12,'fmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,ch,true);d.setUint32(24,sr,true);d.setUint32(28,sr*4,true);d.setUint16(32,4,true);d.setUint16(34,16,true);wstr(36,'data');d.setUint32(40,n*4,true);let l=buffer.getChannelData(0),r=buffer.numberOfChannels>1?buffer.getChannelData(1):l;for(let i=0;i<n;i++){d.setInt16(44+i*4,clamp(l[i],-1,1)*32767,true);d.setInt16(46+i*4,clamp(r[i],-1,1)*32767,true)}return bytes}
-async function renderSong(){const duration=Math.min(180,totalDuration()+4.5),sr=44100,off=new OfflineAudioContext(2,Math.ceil(sr*duration),sr),input=makeAudioGraph(off),tickDur=60/state.bpm/8;state.notes.forEach(n=>scheduleNote(off,input,n,.05+n.t*tickDur,n.len*tickDur));return off.startRendering()}
+async function renderSong(){if(state.presetFormat==='reference-loading')throw new Error('Original Serum sound has not finished loading');const duration=Math.min(180,totalDuration()+4.5),sr=44100,off=new OfflineAudioContext(2,Math.ceil(sr*duration),sr),input=makeAudioGraph(off),tickDur=60/state.bpm/8;state.notes.forEach(n=>scheduleNote(off,input,n,.05+n.t*tickDur,n.len*tickDur));return off.startRendering()}
 function encodeMp3(audio){if(!window.lamejs||!lamejs.Mp3Encoder)throw Error('MP3 encoder not packaged');const enc=new lamejs.Mp3Encoder(2,audio.sampleRate,192),l=audio.getChannelData(0),r=audio.numberOfChannels>1?audio.getChannelData(1):l,chunks=[],block=1152;for(let offset=0;offset<l.length;offset+=block){let sz=Math.min(block,l.length-offset),a=new Int16Array(sz),b=new Int16Array(sz);for(let i=0;i<sz;i++){a[i]=clamp(l[offset+i],-1,1)*32767;b[i]=clamp(r[offset+i],-1,1)*32767}let bytes=enc.encodeBuffer(a,b);if(bytes.length)chunks.push(new Uint8Array(bytes))}let tail=enc.flush();if(tail.length)chunks.push(new Uint8Array(tail));let total=chunks.reduce((s,a)=>s+a.length,0),out=new Uint8Array(total),k=0;chunks.forEach(c=>{out.set(c,k);k+=c.length});return out}
 let exporting=false;async function exportSong(type){hideMenu();if(exporting)return;if(!state.notes.length){toast('Add notes before export');return}exporting=true;toast('Rendering '+type.toUpperCase()+'…');try{let buffer=await renderSong(),data=type==='mp3'?encodeMp3(buffer):wavBytes(buffer);saveData('Pulse-Studio-Track.'+type,type==='mp3'?'audio/mpeg':'audio/wav',data)}catch(e){console.error(e);toast('Export error: '+e.message)}finally{exporting=false}}
 $('exportWav').onclick=()=>exportSong('wav');$('exportMp3').onclick=()=>exportSong('mp3');
 $('newProject').onclick=()=>{hideMenu();stopPlayback();snapshot();state.notes=[];selected=null;updateSelected();drawGrid();toast('New empty pattern')};
 $('resetSynth').onclick=()=>{state.synth=defaultSynth();state.effects=freshFX();state.name='INIT • HYBRID LEAD';state.presetFormat='init';state.presetNote='Internal wavetable synth';state.fxOrder=null;sampleBuffer=null;state.sampleData=null;syncControls();buildEffects();updateHeader()};
+
+window.PulseReference={
+  async ready(base64){
+    try{
+      const bytes=base64ToBytes(base64),ctx=new (window.AudioContext||window.webkitAudioContext)();
+      referenceBuffer=await ctx.decodeAudioData(bytes.buffer.slice(0));
+      await ctx.close();
+      if(referenceBuffer.duration<6||referenceBuffer.duration>20)throw new Error('Unexpected reference length');
+      console.log('REFERENCE_READY '+referenceBuffer.duration.toFixed(2)+'s '+bytes.length+' bytes');
+      if(['reference-loading','reference'].includes(state.presetFormat)||(state.presetFormat==='fxp'&&/c64\s*lead/i.test(state.name))){
+        state.presetFormat='reference';state.name='LD C64 Lead [AS]';
+        state.presetNote='Original Serum recording • automatic built-in patch';
+        state.synth={...defaultSynth(),attack:.002,decay:.05,sustain:100,release:.18,master:94,cutoff:18000,reso:0};
+        state.effects=freshFX();Object.values(state.effects).forEach(e=>e.on=false);
+        state.fxOrder=null;sampleBuffer=null;state.sampleData=null;
+        syncControls();buildEffects();updateHeader();
+        setTransportStatus('C64 SERUM SOUND READY • TAP PLAY');
+        toast('Original Serum C64 reference loaded automatically');
+      }
+    }catch(err){this.failed('Audio decode: '+err.message)}
+  },
+  failed(reason){
+    if(state.presetFormat==='reference-loading'){
+      state.presetNote='Serum reference download unavailable; check internet';
+      updateHeader();setTransportStatus('SERUM REFERENCE NOT AVAILABLE • RETRIES ON NEXT OPEN');
+      toast('Serum reference unavailable: '+reason);
+    }
+    console.error('REFERENCE_FAILED '+reason);
+  }
+};
+
 window.addEventListener('error',e=>{console.error(e.error||e.message)});
-function boot(){buildControls();buildEffects();buildKeyboard();setupGrid();updateHeader();updateSelected();setTransportStatus('READY • TAP PLAY TO HEAR NOTES');syncPlayButton();setTimeout(()=>{$('roll').scrollTop=200;$('roll').scrollLeft=0},100)}boot();
+function boot(){buildControls();buildEffects();buildKeyboard();setupGrid();updateHeader();updateSelected();setTransportStatus('LOADING ORIGINAL C64 SERUM SOUND…');syncPlayButton();if(window.Android&&window.Android.prefetchLead)window.Android.prefetchLead();else window.PulseReference.failed('Android bridge not available');setTimeout(()=>{$('roll').scrollTop=200;$('roll').scrollLeft=0},100)}boot();
