@@ -45,7 +45,10 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 Log.i(TAG, "Page loaded: " + url);
-                view.evaluateJavascript("(function(){try{return JSON.stringify({ready:typeof boot==='function',notes:state.notes.length,effects:document.querySelectorAll('#effectsGrid .panel').length,keys:document.querySelectorAll('#keyboard .white').length,canvas:document.getElementById('grid').width})}catch(e){return 'ERROR:'+e.message}})()", result -> Log.i(TAG, "STARTUP TEST: " + result));
+                view.evaluateJavascript("(function(){try{return JSON.stringify({ready:typeof boot==='function',notes:state.notes.length,effects:document.querySelectorAll('#effectsGrid .panel').length,keys:document.querySelectorAll('#keyboard .white-key').length,canvas:document.getElementById('grid').width})}catch(e){return 'ERROR:'+e.message}})()", result -> Log.i(TAG, "STARTUP TEST: " + result));
+                if (getIntent().getBooleanExtra("smokeTest", false)) {
+                    view.evaluateJavascript("(async function(){try{var ctx=new OfflineAudioContext(2,44100*2,44100);var bus=makeAudioGraph(ctx);scheduleNote(ctx,bus,{pitch:72,vel:.9},0.01,0.4);var b=await ctx.startRendering();var d=b.getChannelData(0);var sum=0;for(var i=0;i<d.length;i++)sum+=Math.abs(d[i]);console.log('SMOKE_AUDIO_MEAN '+(sum/d.length).toFixed(6));}catch(e){console.error('SMOKE_AUDIO_FAIL '+e.message)}})()", null);
+                }
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
