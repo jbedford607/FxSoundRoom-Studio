@@ -29,12 +29,19 @@ jobs:
           npm install --prefix /tmp/pulse-libs lamejs@1.2.1
           cp /tmp/pulse-libs/node_modules/lamejs/lame.all.js app/src/main/assets/lame.all.js
           test -f /tmp/pulse-libs/node_modules/lamejs/LICENSE && cp /tmp/pulse-libs/node_modules/lamejs/LICENSE app/src/main/assets/LAMEJS-LICENSE.txt || true
+      - name: Bundle public Serum C64 comparison recording
+        run: |
+          curl -fLsS --retry 5 --retry-all-errors --connect-timeout 15 \
+            "https://raw.githubusercontent.com/btesser/serum2vital/gh-pages/factory-leads/LD%20C64%20Lead%20%5BAS%5D%20-%20serum.mp3" \
+            -o app/src/main/assets/LD_C64_Original_Serum.mp3
+          test "$(wc -c < app/src/main/assets/LD_C64_Original_Serum.mp3)" -eq 121251
+          sha256sum app/src/main/assets/LD_C64_Original_Serum.mp3
       - name: Build APK
         run: gradle assembleDebug --no-daemon
       - name: Verify signed APK
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
-          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'classes2.dex|assets/app.js|assets/index.html|assets/lame.all.js'
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'classes2.dex|assets/app.js|assets/index.html|assets/lame.all.js|assets/LD_C64_Original_Serum.mp3'
       - name: Enable emulator hardware acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -63,6 +70,7 @@ jobs:
             grep -q 'SMOKE_UI_OK' pulse-logcat.txt
             grep -q 'SMOKE_AUDIO_MEAN' pulse-logcat.txt
             grep -q 'SMOKE_EXPORT' pulse-logcat.txt
+            grep -q 'REFERENCE_ASSET' pulse-logcat.txt
             grep -q 'REFERENCE_READY' pulse-logcat.txt
             grep -q 'SMOKE_REFERENCE_MEAN' pulse-logcat.txt
             if grep -E 'SMOKE_AUDIO_FAIL|SMOKE_REFERENCE_FAIL|FATAL EXCEPTION' pulse-logcat.txt; then exit 1; fi
