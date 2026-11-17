@@ -7,6 +7,8 @@ import android.content.ActivityNotFoundException;
 import android.graphics.Color;
 import android.net.Uri;
 import android.util.Base64;
+import android.util.Log;
+import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -17,6 +19,7 @@ import android.widget.Toast;
 import java.io.OutputStream;
 
 public class MainActivity extends Activity {
+    private static final String TAG = "PulseStudio";
     private static final int REQUEST_OPEN = 101;
     private static final int REQUEST_SAVE = 102;
     private WebView webView;
@@ -39,8 +42,17 @@ public class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                Log.i(TAG, "Page loaded: " + url);
+                view.evaluateJavascript("(function(){try{return JSON.stringify({ready:typeof boot==='function',notes:state.notes.length,effects:document.querySelectorAll('#effectsGrid .panel').length,keys:document.querySelectorAll('#keyboard .white').length,canvas:document.getElementById('grid').width})}catch(e){return 'ERROR:'+e.message}})()", result -> Log.i(TAG, "STARTUP TEST: " + result));
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onConsoleMessage(ConsoleMessage message) {
+                Log.i(TAG, "JS " + message.messageLevel().name() + " " + message.message() + " (" + message.lineNumber() + ")");
+                return true;
+            }
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback=cb;
