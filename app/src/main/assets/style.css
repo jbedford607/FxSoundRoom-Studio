@@ -61,3 +61,7 @@ nav.main-tabs .active{color:var(--accent);background:#303941;border-bottom:2px s
 .toast{bottom:170px;background:#404a4e;border:1px solid #9cbb74}
 @media(max-width:380px){#transportBar{grid-template-columns:31px minmax(65px,1fr) 31px 31px 60px 31px;gap:3px;padding:5px 5px}#transportBar button{height:42px}.t-tempo{height:42px}.topbar .brand b{font-size:11px}.topbar .patch-title strong{font-size:11px}.import-action{min-width:55px;font-size:9px}#rollView .toolbar .tool{min-width:30px;flex-basis:30px;height:33px}#rollView .toolbar .snap-label{font-size:9px}}
 @media(orientation:landscape) and (max-height:550px){#keyboardDrawer{height:73px;min-height:73px}#keyboard{height:73px}#keyboard .white-key{height:73px}#keyboard .black-key{height:44px}#rollView .bottom-edit{flex-basis:32px;height:32px}#rollView .toolbar{flex-basis:38px;min-height:38px}header.topbar{flex-basis:38px;min-height:38px}#transportBar{height:51px}nav.main-tabs{height:32px;flex-basis:32px}}
+
+/* In recorded Ser­um mode oscillator wave settings are baked into the audio, not editable. */
+#synthView.reference-mode .synth-cols{display:none}
+#synthView.reference-mode .sheet-heading h2::after{content:' • RECORDED';font-size:10px;color:#b7d77c;font-weight:500}
