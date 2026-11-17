@@ -19,11 +19,16 @@ jobs:
         with:
           gradle-version: '8.10.2'
       - name: Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+      - name: SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Install MP3 encoder
         run: |
           npm install --prefix /tmp/pulse-libs lamejs@1.2.1
           cp /tmp/pulse-libs/node_modules/lamejs/lame.all.js app/src/main/assets/lame.all.js
+          test -f /tmp/pulse-libs/node_modules/lamejs/LICENSE && cp /tmp/pulse-libs/node_modules/lamejs/LICENSE app/src/main/assets/LAMEJS-LICENSE.txt || true
       - name: Build APK
         run: gradle assembleDebug --no-daemon
       - name: Upload installable APK
