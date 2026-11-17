@@ -1,0 +1,108 @@
+package com.pocketserum.studio;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.content.Intent;
+import android.content.ActivityNotFoundException;
+import android.graphics.Color;
+import android.net.Uri;
+import android.util.Base64;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.ValueCallback;
+import android.widget.Toast;
+import java.io.OutputStream;
+
+public class MainActivity extends Activity {
+    private static final int REQUEST_OPEN = 101;
+    private static final int REQUEST_SAVE = 102;
+    private WebView webView;
+    private ValueCallback<Uri[]> fileCallback;
+    private byte[] pendingSave;
+
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getWindow().setStatusBarColor(Color.rgb(18,22,29));
+        getWindow().setNavigationBarColor(Color.rgb(18,22,29));
+        webView = new WebView(this);
+        webView.setBackgroundColor(Color.rgb(18,22,29));
+        setContentView(webView);
+        WebSettings settings=webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
+        webView.setWebViewClient(new WebViewClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback=cb;
+                try {
+                    Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.setType("*/*");
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivityForResult(intent,REQUEST_OPEN);
+                    return true;
+                } catch (ActivityNotFoundException ex) {
+                    fileCallback=null;
+                    Toast.makeText(MainActivity.this,"No file picker available",Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+            }
+        });
+        webView.addJavascriptInterface(new Bridge(),"Android");
+        webView.loadUrl("file:///android_asset/index.html");
+    }
+
+    private class Bridge {
+        @JavascriptInterface public void saveBase64(String filename,String mime,String base64) {
+            if (base64.length() > 160_000_000) return;
+            try {
+                byte[] bytes=Base64.decode(base64,Base64.DEFAULT);
+                runOnUiThread(()->openSaveDialog(filename,mime,bytes));
+            } catch(Exception e) {runOnUiThread(()->Toast.makeText(MainActivity.this,"Export failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}
+        }
+    }
+    private void openSaveDialog(String filename,String mime,byte[] bytes) {
+        pendingSave=bytes;
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mime);
+        intent.putExtra(Intent.EXTRA_TITLE, filename);
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        try {startActivityForResult(intent,REQUEST_SAVE);} catch(Exception e) {pendingSave=null; Toast.makeText(this,"Can't open save dialog",Toast.LENGTH_SHORT).show();}
+    }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data) {
+        super.onActivityResult(requestCode,resultCode,data);
+        if (requestCode==REQUEST_OPEN) {
+            if(fileCallback!=null) {
+                Uri[] uris=resultCode==RESULT_OK&&data!=null&&data.getData()!=null?new Uri[]{data.getData()}:null;
+                fileCallback.onReceiveValue(uris); fileCallback=null;
+            }
+        } else if (requestCode==REQUEST_SAVE) {
+            if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&pendingSave!=null){
+                byte[] bytes=pendingSave;Uri target=data.getData();
+                new Thread(()->{
+                    try(OutputStream os=getContentResolver().openOutputStream(target,"w")){
+                        if(os==null)throw new Exception("No output stream");
+                        os.write(bytes);os.flush();
+                        runOnUiThread(()->Toast.makeText(this,"File saved",Toast.LENGTH_SHORT).show());
+                    }catch(Exception e){runOnUiThread(()->Toast.makeText(this,"Save error: "+e.getMessage(),Toast.LENGTH_LONG).show());}
+                }).start();
+            }
+            pendingSave=null;
+        }
+    }
+    @Override protected void onDestroy() {
+        if(webView!=null){webView.loadUrl("about:blank");webView.destroy();webView=null;}
+        super.onDestroy();
+    }
+}
