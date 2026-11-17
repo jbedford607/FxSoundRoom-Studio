@@ -174,6 +174,19 @@ window.PulseReference={
       await ctx.close();
       if(referenceBuffer.duration<6||referenceBuffer.duration>20)throw new Error('Unexpected reference length');
       console.log('REFERENCE_READY '+referenceBuffer.duration.toFixed(2)+'s '+bytes.length+' bytes');
+      if(window.__pulseSmokeTest){
+        setTimeout(async()=>{
+          try{
+            const off=new OfflineAudioContext(2,88200,44100),bus=makeAudioGraph(off);
+            scheduleNote(off,bus,{pitch:72,vel:.95},.03,.65);
+            const r=await off.startRendering(),d=r.getChannelData(0);
+            let total=0;for(let i=0;i<d.length;i++)total+=Math.abs(d[i]);
+            const mean=total/d.length;
+            console.log('SMOKE_REFERENCE_MEAN '+mean.toFixed(7));
+            if(mean<.0001)console.error('SMOKE_REFERENCE_FAIL silence');
+          }catch(e){console.error('SMOKE_REFERENCE_FAIL '+e.message)}
+        },150);
+      }
       if(['reference-loading','reference'].includes(state.presetFormat)||(state.presetFormat==='fxp'&&/c64\s*lead/i.test(state.name))){
         state.presetFormat='reference';state.name='LD C64 Lead [AS]';
         state.presetNote='Original Serum recording • automatic built-in patch';
