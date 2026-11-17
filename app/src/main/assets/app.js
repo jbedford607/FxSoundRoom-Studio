@@ -183,6 +183,9 @@ window.PulseReference={
             let total=0;for(let i=0;i<d.length;i++)total+=Math.abs(d[i]);
             const mean=total/d.length;
             console.log('SMOKE_REFERENCE_MEAN '+mean.toFixed(7));
+            const song=await renderSong(),wav=wavBytes(song),mp3=encodeMp3(song);
+            if(wav.length<500||mp3.length<500)throw new Error('Reference export empty');
+            console.log('SMOKE_REFERENCE_EXPORT WAV '+wav.length+' MP3 '+mp3.length);
             if(mean<.0001)console.error('SMOKE_REFERENCE_FAIL silence');
           }catch(e){console.error('SMOKE_REFERENCE_FAIL '+e.message)}
         },150);
