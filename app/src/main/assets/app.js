@@ -1,5 +1,5 @@
 'use strict';
-// Pulse Studio v0.1. Independent synth/sequencer; not affiliated with Xfer or Image-Line.
+// Pulse Studio v0.4. Independent audio sequencer; not affiliated with Image-Line or Xfer.
 const $=id=>document.getElementById(id);
 const STEP=14, KEY=24, SIDE=53, TICKS=128, HI=83, LO=48;
 const NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -19,13 +19,13 @@ function setupGrid(){let dpr=Math.min(2,window.devicePixelRatio||1), w=SIDE+TICK
 function drawGrid(){const w=SIDE+TICKS*STEP,h=(HI-LO+1)*KEY;g.clearRect(0,0,w,h);
   for(let r=0;r<=HI-LO;r++){let m=HI-r,y=r*KEY,p=m%12,black=[1,3,6,8,10].includes(p);g.fillStyle=black?'#18212b':'#222b36';g.fillRect(0,y,w,KEY);g.fillStyle=black?'#303b47':'#d9e1e9';g.fillRect(0,y,SIDE-2,KEY-1);g.fillStyle=black?'#e2ecf3':'#26303b';g.font='10px Roboto,Arial';if(p===0||p===5||p===7)g.fillText(NOTE(m),6,y+15);g.fillStyle=m%12===0?'#506178':'#33404e';g.fillRect(SIDE,y,w-SIDE,1)}
   for(let i=0;i<=TICKS;i++){let x=SIDE+i*STEP;g.fillStyle=i%32===0?'#6d7b8c':i%8===0?'#526070':i%2===0?'#384652':'#2d3a46';g.fillRect(x,0,i%32===0?2:1,h);if(i%32===0){g.fillStyle='#899bae';g.font='bold 10px Roboto,Arial';g.fillText('BAR '+(i/32+1),x+5,13)}}
-  state.notes.forEach((n,i)=>{let x=SIDE+n.t*STEP,y=(HI-n.pitch)*KEY+2,width=Math.max(4,n.len*STEP-1);g.fillStyle=i===selected?'#ffc778':'#f18f27';g.fillRect(x+1,y,width,KEY-4);g.fillStyle=i===selected?'#e49c47':'#bf651b';g.fillRect(x+width-5,y,5,KEY-4);g.fillStyle='#27303a';g.font='bold 10px Roboto,Arial';g.fillText(NOTE(n.pitch),x+5,y+14);if(n.slideTarget!==undefined){g.strokeStyle='#302015';g.beginPath();g.moveTo(x+3,y+KEY-6);g.lineTo(x+width-8,y+3);g.stroke()}});
+  state.notes.forEach((n,i)=>{let x=SIDE+n.t*STEP,y=(HI-n.pitch)*KEY+2,width=Math.max(4,n.len*STEP-1);g.fillStyle=i===selected?'#f1fd91':'#a5dc4e';g.fillRect(x+1,y,width,KEY-4);g.fillStyle=i===selected?'#aedc60':'#719a36';g.fillRect(x+width-5,y,5,KEY-4);g.fillStyle='#27303a';g.font='bold 10px Roboto,Arial';g.fillText(NOTE(n.pitch),x+5,y+14);if(n.slideTarget!==undefined){g.strokeStyle='#302015';g.beginPath();g.moveTo(x+3,y+KEY-6);g.lineTo(x+width-8,y+3);g.stroke()}});
   if(active){let tick=Math.max(0,(active.ctx.currentTime-active.start)/active.tickDur);if(tick<=TICKS){g.fillStyle='#fff7ad';g.fillRect(SIDE+tick*STEP,0,2,h)}}
 }
 function pointerPos(e){let rect=canvas.getBoundingClientRect();return {x:e.clientX-rect.left,y:e.clientY-rect.top}}
 function hitNote(x,y){let m=HI-Math.floor(y/KEY);for(let i=state.notes.length-1;i>=0;i--){let n=state.notes[i];if(n.pitch===m&&x>=SIDE+n.t*STEP&&x<=SIDE+(n.t+n.len)*STEP)return i}return -1}
 function gridTick(x){return clamp(Math.floor(Math.max(0,x-SIDE)/STEP/snap)*snap,0,TICKS-snap)}
-canvas.addEventListener('pointerdown',e=>{let {x,y}=pointerPos(e);if(tool==='hand'){drag={mode:'pan',x:e.clientX,y:e.clientY,left:$('roll').scrollLeft,top:$('roll').scrollTop};canvas.setPointerCapture(e.pointerId);return}if(x<SIDE||y<0||y>(HI-LO+1)*KEY)return;const hit=hitNote(x,y);if(tool==='erase'){if(hit>=0){snapshot();state.notes.splice(hit,1);selected=null;drawGrid()}return}if(hit>=0){selected=hit;let n=state.notes[hit];drag={mode:(x>SIDE+(n.t+n.len)*STEP-12?'resize':'move'),index:hit,x,y,oldT:n.t,oldPitch:n.pitch,oldLen:n.len,oldSlideTarget:n.slideTarget};}else if(tool==='draw'){if(state.notes.length>=300)return toast('Maximum 300 notes');snapshot();let pitch=clamp(HI-Math.floor(y/KEY),LO,HI),n={t:gridTick(x),len:Math.max(2,snap),pitch,vel:Number($('velocity').value)/100};state.notes.push(n);selected=state.notes.length-1;drag={mode:'new',index:selected,x,y,oldT:n.t,oldPitch:pitch,oldLen:n.len};}else{selected=null;drawGrid();return}canvas.setPointerCapture(e.pointerId);updateSelected();drawGrid()});
+canvas.addEventListener('pointerdown',e=>{let {x,y}=pointerPos(e);if(tool==='hand'){drag={mode:'pan',x:e.clientX,y:e.clientY,left:$('roll').scrollLeft,top:$('roll').scrollTop};canvas.setPointerCapture(e.pointerId);return}if(x<SIDE&&y>=0&&y<(HI-LO+1)*KEY){previewNote(clamp(HI-Math.floor(y/KEY),LO,HI));return}if(x<SIDE||y<0||y>(HI-LO+1)*KEY)return;const hit=hitNote(x,y);if(tool==='erase'){if(hit>=0){snapshot();state.notes.splice(hit,1);selected=null;drawGrid()}return}if(hit>=0){selected=hit;let n=state.notes[hit];drag={mode:(x>SIDE+(n.t+n.len)*STEP-12?'resize':'move'),index:hit,x,y,oldT:n.t,oldPitch:n.pitch,oldLen:n.len,oldSlideTarget:n.slideTarget};}else if(tool==='draw'){if(state.notes.length>=300)return toast('Maximum 300 notes');snapshot();let pitch=clamp(HI-Math.floor(y/KEY),LO,HI),n={t:gridTick(x),len:Math.max(2,snap),pitch,vel:Number($('velocity').value)/100};state.notes.push(n);selected=state.notes.length-1;drag={mode:'new',index:selected,x,y,oldT:n.t,oldPitch:pitch,oldLen:n.len};}else{selected=null;drawGrid();return}canvas.setPointerCapture(e.pointerId);updateSelected();drawGrid()});
 canvas.addEventListener('pointermove',e=>{if(!drag)return;if(drag.mode==='pan'){e.preventDefault();$('roll').scrollLeft=drag.left-(e.clientX-drag.x);$('roll').scrollTop=drag.top-(e.clientY-drag.y);return}let {x,y}=pointerPos(e),n=state.notes[drag.index];if(!n)return;let dx=Math.round((x-drag.x)/(STEP*snap))*snap;if(drag.mode==='move'){n.t=clamp(drag.oldT+dx,0,TICKS-n.len);n.pitch=clamp(drag.oldPitch+Math.round((drag.y-y)/KEY),LO,HI);if(drag.oldSlideTarget!==undefined)n.slideTarget=drag.oldSlideTarget+(n.pitch-drag.oldPitch)}else if(drag.mode==='resize'||drag.mode==='new'){n.len=clamp(drag.oldLen+dx,Math.max(1,snap),TICKS-n.t)}drawGrid()});
 canvas.addEventListener('pointerup',()=>{drag=null;updateSelected()});canvas.addEventListener('pointercancel',()=>{drag=null});
 function updateSelected(){let n=state.notes[selected];$('velocity').disabled=!n;$('velocity').value=n?Math.round(n.vel*100):85;$('slide').disabled=!n;$('slide').value=n&&n.slideTarget!==undefined?String(n.slideTarget-n.pitch):'0';$('selectionLabel').textContent=n?`${NOTE(n.pitch)} • ${n.len}/32 notes • Start ${n.t}/32`:'Tap to add notes • Drag to move • Drag right edge to resize'}
@@ -78,10 +78,35 @@ function scheduleNote(ctx,output,n,start,duration){let p=state.synth,end=start+d
   }
   return sources
 }
-function totalDuration(){return TICKS*60/state.bpm/8}
-function stopPlayback(){if(!active)return;let old=active;active=null;$('play').classList.remove('on');$('play').textContent='▶';try{old.ctx.close()}catch(e){};drawGrid()}
-async function playPlayback(){if(active){stopPlayback();return}if(!state.notes.length){toast('Add notes in the piano roll first');return}try{let ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});await ctx.resume();let input=makeAudioGraph(ctx),start=ctx.currentTime+.08,tickDur=60/state.bpm/8;state.notes.forEach(n=>scheduleNote(ctx,input,n,start+n.t*tickDur,n.len*tickDur));active={ctx,start,tickDur};$('play').textContent='Ⅱ';$('play').classList.add('on');const current=ctx;function animate(){if(!active||active.ctx!==current)return;drawGrid();if(current.currentTime>start+totalDuration()+1.8){stopPlayback();if(loop)playPlayback();return}requestAnimationFrame(animate)}requestAnimationFrame(animate)}catch(e){toast('Audio error: '+e.message)}}
-$('play').onclick=()=>playPlayback();$('stop').onclick=()=>stopPlayback();
+function totalDuration(){let ticks=state.notes.reduce((v,n)=>Math.max(v,n.t+n.len),0);return Math.max(1,ticks*60/state.bpm/8)}
+function setTransportStatus(message){let el=$('audioStatus');if(el){el.textContent=message;el.classList.toggle('playing',message.startsWith('PLAYING'))}}
+function syncPlayButton(){const el=$('play'),isPlaying=!!active&&!active.paused;el.classList.toggle('on',isPlaying);el.innerHTML=isPlaying?'Ⅱ <span>PAUSE</span>':active?'▶ <span>RESUME</span>':'▶ <span>PLAY</span>';el.setAttribute('aria-label',isPlaying?'Pause':active?'Resume':'Play')}
+function stopPlayback(){if(!active){syncPlayButton();return}let old=active;active=null;try{old.ctx.close()}catch(e){};$('positionStatus').textContent='1:01';setTransportStatus('STOPPED • TAP PLAY');syncPlayButton();drawGrid()}
+async function playPlayback(){
+  if(active){try{if(active.paused){await active.ctx.resume();active.paused=false;setTransportStatus('PLAYING');}else{await active.ctx.suspend();active.paused=true;setTransportStatus('PAUSED');}syncPlayButton();}catch(e){setTransportStatus('AUDIO ERROR: '+e.message);toast('Audio error: '+e.message)}return}
+  if(!state.notes.length){toast('Draw a note first');setTransportStatus('NO NOTES IN PATTERN');return}
+  let ctx;
+  try{
+    ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+    await ctx.resume();
+    if(ctx.state!=='running')throw new Error('Audio context is not running');
+    const input=makeAudioGraph(ctx),start=ctx.currentTime+.08,tickDur=60/state.bpm/8;
+    state.notes.forEach(n=>scheduleNote(ctx,input,n,start+n.t*tickDur,n.len*tickDur));
+    active={ctx,start,tickDur,paused:false};setTransportStatus('PLAYING');syncPlayButton();
+    const current=ctx;
+    function animate(){
+      if(!active||active.ctx!==current)return;
+      if(!active.paused){let tick=Math.max(0,(current.currentTime-start)/tickDur);$('positionStatus').textContent=(1+Math.floor(tick/32))+':'+String(1+Math.floor((tick%32)/8)).padStart(2,'0');drawGrid();
+      if(current.currentTime>start+totalDuration()+1.3){let looping=loop;stopPlayback();if(looping)playPlayback();return}}
+      requestAnimationFrame(animate)
+    }
+    requestAnimationFrame(animate)
+  }catch(e){if(ctx)try{ctx.close()}catch(_){};active=null;syncPlayButton();setTransportStatus('AUDIO ERROR: '+e.message);toast('Audio error: '+e.message)}
+}
+$('play').onclick=()=>playPlayback();
+$('stop').onclick=()=>{stopPlayback();toast('Stopped')};
+$('rewind').onclick=()=>{stopPlayback();$('roll').scrollLeft=0;$('positionStatus').textContent='1:01';drawGrid();toast('Returned to start')};
+$('toggleKeys').onclick=()=>{let el=$('keyboardDrawer'),collapsed=el.classList.toggle('collapsed');$('toggleKeys').classList.toggle('on',!collapsed);$('toggleKeys').setAttribute('aria-pressed',String(!collapsed));toast(collapsed?'Keyboard hidden':'Keyboard shown')};
 async function previewNote(m){try{if(!preview||preview.state==='closed'){preview=new (window.AudioContext||window.webkitAudioContext)()}await preview.resume();let input=makeAudioGraph(preview);scheduleNote(preview,input,{pitch:m,vel:.9},preview.currentTime+.02,.4)}catch(e){toast('Audio unavailable: '+e.message)}}
 function buildKeyboard(){let div=$('keyboard'),whites=[],black=[];for(let midi=48;midi<=72;midi++){let pc=midi%12;if([1,3,6,8,10].includes(pc)){black.push({m:midi,wi:whites.length})}else whites.push(midi)}div.innerHTML='';whites.forEach(m=>{let b=document.createElement('div');b.className='white-key';b.dataset.midi=m;b.innerHTML=`<span>${m%12===0?NOTE(m):''}</span>`;div.append(b)});let n=whites.length,ww=44;div.style.minWidth=(n*ww)+'px';black.forEach(x=>{let b=document.createElement('div');b.className='black-key';b.dataset.midi=x.m;b.style.left=(x.wi*ww-16)+'px';div.append(b)});div.onpointerdown=e=>{let key=e.target.closest('[data-midi]');if(key){key.classList.add('pressed');previewNote(Number(key.dataset.midi));}};div.onpointerup=()=>div.querySelectorAll('.pressed').forEach(b=>b.classList.remove('pressed'));div.onpointercancel=div.onpointerup}
 // File I/O
@@ -117,4 +142,4 @@ $('exportWav').onclick=()=>exportSong('wav');$('exportMp3').onclick=()=>exportSo
 $('newProject').onclick=()=>{hideMenu();stopPlayback();snapshot();state.notes=[];selected=null;updateSelected();drawGrid();toast('New empty pattern')};
 $('resetSynth').onclick=()=>{state.synth=defaultSynth();state.effects=freshFX();state.name='INIT • HYBRID LEAD';state.presetFormat='init';state.presetNote='Internal wavetable synth';state.fxOrder=null;sampleBuffer=null;state.sampleData=null;syncControls();buildEffects();updateHeader()};
 window.addEventListener('error',e=>{console.error(e.error||e.message)});
-function boot(){buildControls();buildEffects();buildKeyboard();setupGrid();updateHeader();updateSelected();setTimeout(()=>{$('roll').scrollTop=200;$('roll').scrollLeft=0},100)}boot();
+function boot(){buildControls();buildEffects();buildKeyboard();setupGrid();updateHeader();updateSelected();setTransportStatus('READY • TAP PLAY TO HEAR NOTES');syncPlayButton();setTimeout(()=>{$('roll').scrollTop=200;$('roll').scrollLeft=0},100)}boot();
