@@ -54,13 +54,14 @@ jobs:
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
             adb shell am start -W -n com.pocketserum.studio/.MainActivity --ez smokeTest true
-            sleep 12
+            sleep 25
             adb shell screencap -p /sdcard/pulse-launch.png
             adb pull /sdcard/pulse-launch.png pulse-launch.png
             adb logcat -d -v time -s PulseStudio:I AndroidRuntime:E chromium:E > pulse-logcat.txt
             cat pulse-logcat.txt | tail -75
             grep -q 'STARTUP TEST:' pulse-logcat.txt
             grep -q 'SMOKE_AUDIO_MEAN' pulse-logcat.txt
+            grep -q 'SMOKE_EXPORT' pulse-logcat.txt
             if grep -E 'SMOKE_AUDIO_FAIL|FATAL EXCEPTION' pulse-logcat.txt; then exit 1; fi
             awk '/SMOKE_AUDIO_MEAN /{sub(/.*SMOKE_AUDIO_MEAN /, ""); if($1+0>0.000001)ok=1} END{exit !ok}' pulse-logcat.txt
       - name: Upload launch verification
