@@ -76,10 +76,10 @@ function applyEnv(gain,start,end,vel,p){let a=clamp(p.attack,.002,3),d=clamp(p.d
 // MIDI 51 at 3.2s, MIDI 53 at 3.7s, MIDI 55 at 4.2s, MIDI 48 at 4.7s.
 // A short recording cannot provide perfect multisampling on all pitches.
 const referenceSlices=[
-  {pitch:48,offset:.10,loopStart:.31,loopEnd:1.27},
-  {pitch:51,offset:3.26,loopStart:3.32,loopEnd:3.48},
-  {pitch:53,offset:3.76,loopStart:3.82,loopEnd:3.98},
-  {pitch:55,offset:4.26,loopStart:4.32,loopEnd:4.48}
+  {pitch:48,offset:.10,loopStart:.329274,loopEnd:1.265147},
+  {pitch:51,offset:3.26,loopStart:3.301814,loopEnd:3.478005},
+  {pitch:53,offset:3.76,loopStart:3.802449,loopEnd:3.960862},
+  {pitch:55,offset:4.26,loopStart:4.338639,loopEnd:4.494195}
 ];
 function referenceSlice(pitch){return referenceSlices.reduce((best,s)=>Math.abs(s.pitch-pitch)<Math.abs(best.pitch-pitch)?s:best,referenceSlices[0])}
 function scheduleNote(ctx,output,n,start,duration){let p=state.synth,end=start+duration,bus=ctx.createGain(),voiceGain=ctx.createGain();bus.connect(voiceGain).connect(output);let rel=applyEnv(voiceGain,start,end,n.vel||.85,p);let sources=[];
