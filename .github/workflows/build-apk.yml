@@ -31,6 +31,42 @@ jobs:
           test -f /tmp/pulse-libs/node_modules/lamejs/LICENSE && cp /tmp/pulse-libs/node_modules/lamejs/LICENSE app/src/main/assets/LAMEJS-LICENSE.txt || true
       - name: Build APK
         run: gradle assembleDebug --no-daemon
+      - name: Verify signed APK
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -E 'classes2.dex|assets/app.js|assets/index.html|assets/lame.all.js'
+      - name: Android device smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          ram-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell am start -W -n com.pocketserum.studio/.MainActivity --ez smokeTest true
+            sleep 12
+            adb shell screencap -p /sdcard/pulse-launch.png
+            adb pull /sdcard/pulse-launch.png pulse-launch.png
+            adb logcat -d -v time -s PulseStudio:I AndroidRuntime:E chromium:E > pulse-logcat.txt
+            cat pulse-logcat.txt | tail -75
+            grep -q 'STARTUP TEST:' pulse-logcat.txt
+            grep -q 'SMOKE_AUDIO_MEAN' pulse-logcat.txt
+            if grep -E 'SMOKE_AUDIO_FAIL|FATAL EXCEPTION' pulse-logcat.txt; then exit 1; fi
+            awk '/SMOKE_AUDIO_MEAN /{sub(/.*SMOKE_AUDIO_MEAN /, ""); if($1+0>0.000001)ok=1} END{exit !ok}' pulse-logcat.txt
+      - name: Upload launch verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PulseStudio-Launch-Test
+          path: |
+            pulse-launch.png
+            pulse-logcat.txt
+          if-no-files-found: ignore
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
