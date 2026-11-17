@@ -73,6 +73,7 @@ jobs:
             grep -q 'REFERENCE_ASSET' pulse-logcat.txt
             grep -q 'REFERENCE_READY' pulse-logcat.txt
             grep -q 'SMOKE_REFERENCE_MEAN' pulse-logcat.txt
+            grep -q 'SMOKE_REFERENCE_EXPORT' pulse-logcat.txt
             if grep -E 'SMOKE_AUDIO_FAIL|SMOKE_REFERENCE_FAIL|FATAL EXCEPTION' pulse-logcat.txt; then exit 1; fi
             awk '/SMOKE_AUDIO_MEAN /{sub(/.*SMOKE_AUDIO_MEAN /, ""); if($1+0>0.000001)ok=1} END{exit !ok}' pulse-logcat.txt
             awk '/SMOKE_REFERENCE_MEAN /{sub(/.*SMOKE_REFERENCE_MEAN /, ""); if($1+0>0.0001)ok=1} END{exit !ok}' pulse-logcat.txt
