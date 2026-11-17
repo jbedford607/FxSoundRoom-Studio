@@ -21,6 +21,13 @@ import android.webkit.WebViewClient;
 import android.webkit.ValueCallback;
 import android.widget.Toast;
 import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.file.Files;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends Activity {
     private static final String TAG = "PulseStudio";
@@ -98,7 +105,52 @@ public class MainActivity extends Activity {
         webView.loadUrl("file:///android_asset/index.html");
     }
 
+
+    /* Original Serum-rendered demonstration published at
+       https://btesser.github.io/serum2vital/factory-leads/
+       Fetched directly from its publisher on first run, cached privately.
+       It is not redistributed inside this APK. */
+    private void loadLeadReference() {
+        new Thread(() -> {
+            try {
+                File cache = new File(getFilesDir(), "reference-c64-v1.mp3");
+                byte[] audio;
+                if (cache.exists() && cache.length() > 15000 && cache.length() < 2000000) {
+                    audio = Files.readAllBytes(cache.toPath());
+                } else {
+                    URL url = new URL("https://raw.githubusercontent.com/btesser/serum2vital/gh-pages/factory-leads/LD%20C64%20Lead%20%5BAS%5D%20-%20serum.mp3");
+                    HttpURLConnection conn = (HttpURLConnection)url.openConnection();
+                    conn.setConnectTimeout(12000);
+                    conn.setReadTimeout(18000);
+                    conn.setRequestProperty("User-Agent","PulseStudio-C64-ResearchPlayer/1");
+                    try {
+                        if (conn.getResponseCode()!=200) throw new Exception("Reference HTTP " + conn.getResponseCode());
+                        try(InputStream in=conn.getInputStream(); ByteArrayOutputStream out=new ByteArrayOutputStream()) {
+                            byte[] b=new byte[8192];int n;
+                            while((n=in.read(b))!=-1){out.write(b,0,n);if(out.size()>2000000)throw new Exception("Reference too large");}
+                            audio=out.toByteArray();
+                        }
+                    } finally { conn.disconnect(); }
+                    if(audio.length<15000)throw new Exception("Reference audio incomplete");
+                    try(FileOutputStream fs=new FileOutputStream(cache)){fs.write(audio);}
+                }
+                String encoded=Base64.encodeToString(audio,Base64.NO_WRAP);
+                Log.i(TAG,"REFERENCE_FETCH bytes="+audio.length);
+                runOnUiThread(() -> {
+                    if (webView!=null) webView.evaluateJavascript("window.PulseReference&&window.PulseReference.ready('"+encoded+"')",null);
+                });
+            }catch(Exception ex){
+                Log.e(TAG,"REFERENCE_FETCH_FAILED "+ex.getMessage(),ex);
+                String message=ex.getMessage()==null?"Network unavailable":ex.getMessage().replace("'","").replace("\\","/");
+                runOnUiThread(()->{
+                    if(webView!=null)webView.evaluateJavascript("window.PulseReference&&window.PulseReference.failed('"+message+"')",null);
+                });
+            }
+        },"SerumC64AutoLoad").start();
+    }
     private class Bridge {
+        @JavascriptInterface public void prefetchLead() {loadLeadReference();}
+
         @JavascriptInterface public void saveBase64(String filename,String mime,String base64) {
             if (base64.length() > 160_000_000) return;
             try {
