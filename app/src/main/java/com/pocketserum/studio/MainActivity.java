@@ -115,10 +115,17 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 File cache = new File(getFilesDir(), "reference-c64-v1.mp3");
-                byte[] audio;
-                if (cache.exists() && cache.length() > 15000 && cache.length() < 2000000) {
-                    audio = Files.readAllBytes(cache.toPath());
-                } else {
+                byte[] audio=null;
+                // Prefer the reference packaged with this APK: offline, zero setup.
+                try(InputStream in=getAssets().open("LD_C64_Original_Serum.mp3");
+                    ByteArrayOutputStream out=new ByteArrayOutputStream()) {
+                    byte[] buf=new byte[8192];int n;
+                    while((n=in.read(buf))!=-1){out.write(buf,0,n);if(out.size()>2000000)throw new Exception("Embedded sound too large");}
+                    if(out.size()>=15000){audio=out.toByteArray();Log.i(TAG,"REFERENCE_ASSET bytes="+audio.length);}
+                }catch(Exception e){Log.w(TAG,"Bundled sample unavailable: "+e.getMessage());}
+                if (audio==null && cache.exists() && cache.length()>15000 && cache.length()<2000000)
+                    audio=Files.readAllBytes(cache.toPath());
+                if (audio==null) {
                     URL url = new URL("https://raw.githubusercontent.com/btesser/serum2vital/gh-pages/factory-leads/LD%20C64%20Lead%20%5BAS%5D%20-%20serum.mp3");
                     HttpURLConnection conn = (HttpURLConnection)url.openConnection();
                     conn.setConnectTimeout(12000);
@@ -135,6 +142,7 @@ public class MainActivity extends Activity {
                     if(audio.length<15000)throw new Exception("Reference audio incomplete");
                     try(FileOutputStream fs=new FileOutputStream(cache)){fs.write(audio);}
                 }
+                if(audio==null || audio.length<15000)throw new Exception("Serum recording missing");
                 String encoded=Base64.encodeToString(audio,Base64.NO_WRAP);
                 Log.i(TAG,"REFERENCE_FETCH bytes="+audio.length);
                 runOnUiThread(() -> {
